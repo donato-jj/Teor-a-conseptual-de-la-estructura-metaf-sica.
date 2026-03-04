@@ -149,7 +149,6 @@ export function createCGLSim(opts = {}) {
     // Histogram for entropy (64 bins)
     const BINS = 64;
     const hist = new Float32Array(BINS);
-    let maxAmp = 0;
 
     // Phase sums for coherence
     let sumCosP = 0, sumSinP = 0;
@@ -157,6 +156,16 @@ export function createCGLSim(opts = {}) {
     // For asym: sin(phase) * laplacian(phase)
     let sumAsym = 0;
 
+    // First pass: compute sums and find maxAmp for histogram normalization
+    let maxAmp = 0;
+    for (let k = 0; k < N2; k++) {
+      const amp2 = re[k] * re[k] + im[k] * im[k];
+      const amp = Math.sqrt(amp2);
+      if (amp > maxAmp) maxAmp = amp;
+      sumAmp2 += amp2;
+    }
+
+    // Second pass: gradients, phase, asym, histogram (uses maxAmp from first pass)
     for (let j = 0; j < N; j++) {
       for (let i = 0; i < N; i++) {
         const k = _idx(i, j);
@@ -165,10 +174,6 @@ export function createCGLSim(opts = {}) {
         const re_c = re[k], im_c = im[k];
         const amp2 = re_c * re_c + im_c * im_c;
         const amp = Math.sqrt(amp2);
-
-        if (amp > maxAmp) maxAmp = amp;
-
-        sumAmp2 += amp2;
 
         // Gradient (central differences)
         const dxRe = (re[_idx(ip1, j)] - re[_idx(im1, j)]) * 0.5;
@@ -193,14 +198,16 @@ export function createCGLSim(opts = {}) {
         const lapP = p_r + p_l + p_u + p_d - 4 * p_c;
         sumAsym += Math.sin(p_c) * lapP;
 
-        // Histogram bin
+        // Histogram bin (maxAmp from first pass ensures correct normalization)
         const binIdx = Math.min(BINS - 1, Math.floor((amp / (maxAmp + 1e-12)) * BINS));
         hist[binIdx] += 1;
       }
     }
 
     const invN2 = 1 / N2;
-    const E = (sumGrad2 + sumVAmp2 * vAmp + 0.5 * sumAmp2 * sumAmp2 * invN2) * invN2;
+    // E_total = mean(grad² + V·amp² + 0.5·amp⁴)
+    // sumVAmp2 = Σ V[k]·amp2[k] already encodes the potential amplitude via V values
+    const E = (sumGrad2 + sumVAmp2 + 0.5 * sumAmp2 * sumAmp2 * invN2) * invN2;
     const D = gamma * sumAmp2 * invN2;
     // Ein: energy proxy for "injected" growth term (mean of amp2, proportional to +ψ term)
     const Ein = sumAmp2 * invN2;

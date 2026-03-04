@@ -99,6 +99,8 @@ export function renderField(ctx, field, metrics, opts = {}) {
         const phase = Math.atan2(im_c, re_c);
         val255 = Math.round((phase / (2 * Math.PI) + 0.5) * 255);
       } else if (mode === 'energy') {
+        // Local energy proxy for visualization: uses amplitude only (no gradient/potential terms)
+        // for per-pixel speed. Global E_total metric includes all terms (see cgl2d.js getMetrics).
         const localE = amp2 + 0.5 * amp2 * amp2;
         val255 = Math.min(255, Math.round(localE * 40));
       } else {

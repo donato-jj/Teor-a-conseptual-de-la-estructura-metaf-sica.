@@ -24,12 +24,8 @@ export class GraphNetwork {
       this.nodes.push({
         x: cx + r * Math.cos(angle),
         y: cy + r * Math.sin(angle),
-        vx: (Math.random() - 0.5) * 0.3,
-        vy: (Math.random() - 0.5) * 0.3,
         activity: Math.random(),
         label: String.fromCharCode(65 + i),
-        baseX: cx + r * Math.cos(angle),
-        baseY: cy + r * Math.sin(angle),
       });
     }
     this.edges = [];
