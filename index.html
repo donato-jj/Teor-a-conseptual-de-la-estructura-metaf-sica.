@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Límite de Complejidad por Energía — DQRI/FRIF</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- TOP BAR -->
+  <header id="topbar">
+    <div id="brand">
+      <h1>Límite de Complejidad por Energía</h1>
+      <p>DQRI / FRIF y Asimetría Biológica</p>
+    </div>
+    <div id="actions">
+      <select id="presetSelect" aria-label="Presets">
+        <option value="stable">Stable</option>
+        <option value="turbulent">Turbulent</option>
+        <option value="highAsym">High Asymmetry</option>
+        <option value="lowDiss">Low Dissipation</option>
+      </select>
+      <button id="btnReset">Reset</button>
+      <button id="btnExportPng">Exportar PNG</button>
+      <button id="btnCopyLink">Copiar Link</button>
+      <div id="perfReadout">FPS: -- | ms: --</div>
+    </div>
+  </header>
+
+  <!-- NAVIGATION TABS -->
+  <nav id="tabs">
+    <button class="tab" data-tab="frif">Medición del FRIF</button>
+    <button class="tab" data-tab="lab">Simulación en el Laboratorio</button>
+    <button class="tab" data-tab="how">Cómo Lograrlo</button>
+    <button class="tab" data-tab="impl">Implementación Real</button>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main id="content">
+
+    <!-- ── FRIF TAB ── -->
+    <section id="sectionFrif" style="display:none">
+      <div class="panel sectionPad">
+        <h2>Medición del FRIF</h2>
+        <p class="muted">El FRIF (Factor de Riqueza de Información Funcional) es una métrica compuesta que relaciona la información efectiva (<em>I_eff</em>), la estabilidad energética (<em>Stab</em>) y la energía de entrada (<em>E_in</em>).</p>
+        <div class="frifFormulas">
+          <div class="formula"><code>FRIF = (I_eff × Stab) / (E_in + ε)</code></div>
+          <div class="formula"><code>I_eff = clamp01((S_max − S)/S_max) + 0.35 × coherence</code></div>
+          <div class="formula"><code>Stab = 1 / (Var(E, W=60) + ε)</code></div>
+          <div class="formula"><code>E_in = mean(|ψ|²)   [proxy operacional del término +ψ]</code></div>
+        </div>
+        <p class="muted">Ejecute la simulación en la pestaña <strong>Simulación en el Laboratorio</strong> para observar FRIF en tiempo real en el panel FRIF vs Energía.</p>
+      </div>
+    </section>
+
+    <!-- ── LAB TAB (dashboard) ── -->
+    <section id="dashboard">
+      <div id="cardsTop">
+
+        <!-- Card 1: Red Química Autocatalítica -->
+        <div class="card" id="cardNetwork">
+          <h3>Red Química Autocatalítica</h3>
+          <canvas id="netCanvas"></canvas>
+        </div>
+
+        <!-- Card 2: Atractor Dinámico -->
+        <div class="card" id="cardAttractor">
+          <h3>Atractor Dinámico</h3>
+          <canvas id="attrCanvas"></canvas>
+        </div>
+
+        <!-- Card 3: FRIF vs Energía -->
+        <div class="card" id="cardFrifEnergy">
+          <h3>FRIF vs Energía</h3>
+          <canvas id="frifCanvas"></canvas>
+        </div>
+
+        <!-- Card 4: Sistema Instrumental -->
+        <div class="card" id="cardGauges">
+          <h3>Sistema Instrumental</h3>
+          <canvas id="gaugeCanvas"></canvas>
+          <div id="gaugeNumbers"></div>
+        </div>
+
+        <!-- Card 5: Campo Cuántico y Asimetría Biológica -->
+        <div class="card wide" id="cardField">
+          <h3>Campo Cuántico y Asimetría Biológica</h3>
+          <div id="fieldWrap">
+            <canvas id="fieldCanvas"></canvas>
+            <aside id="controls">
+              <!-- 1. Toggle Run -->
+              <button id="toggleRun">Start</button>
+
+              <!-- 2. Step -->
+              <button id="btnStep">Step</button>
+
+              <!-- 3. Mode select -->
+              <div class="ctrlGroup">
+                <label for="modeSelect">Modo Vista</label>
+                <select id="modeSelect">
+                  <option value="amplitude">Amplitud</option>
+                  <option value="phase">Fase</option>
+                  <option value="energy">Energía</option>
+                  <option value="asym">Asimetría (L/D)</option>
+                </select>
+              </div>
+
+              <!-- 4. Alpha -->
+              <div class="ctrlGroup">
+                <label for="alphaRange">α (dispersión) <span class="rangeVal" id="alphaVal">0.35</span></label>
+                <input type="range" id="alphaRange" min="-2.0" max="2.0" step="0.01" value="0.35"
+                  oninput="document.getElementById('alphaVal').textContent=this.value" />
+              </div>
+
+              <!-- 5. Beta -->
+              <div class="ctrlGroup">
+                <label for="betaRange">β (no linealidad) <span class="rangeVal" id="betaVal">1.10</span></label>
+                <input type="range" id="betaRange" min="-2.0" max="2.0" step="0.01" value="1.10"
+                  oninput="document.getElementById('betaVal').textContent=this.value" />
+              </div>
+
+              <!-- 6. Gamma -->
+              <div class="ctrlGroup">
+                <label for="gammaRange">γ (disipación) <span class="rangeVal" id="gammaVal">0.08</span></label>
+                <input type="range" id="gammaRange" min="0.00" max="1.00" step="0.005" value="0.08"
+                  oninput="document.getElementById('gammaVal').textContent=this.value" />
+              </div>
+
+              <!-- 7. dt -->
+              <div class="ctrlGroup">
+                <label for="dtRange">dt (paso temporal) <span class="rangeVal" id="dtVal">0.018</span></label>
+                <input type="range" id="dtRange" min="0.001" max="0.06" step="0.001" value="0.018"
+                  oninput="document.getElementById('dtVal').textContent=this.value" />
+                <small class="dtSafeLabel muted2">safe dt: —</small>
+              </div>
+
+              <!-- 8. Boundary -->
+              <div class="ctrlGroup">
+                <label for="boundarySelect">Borde</label>
+                <select id="boundarySelect">
+                  <option value="periodic">Periódico</option>
+                  <option value="reflect">Reflectante</option>
+                </select>
+              </div>
+
+              <!-- 9. Potential -->
+              <div class="ctrlGroup">
+                <label for="potentialSelect">Potencial V(x,y)</label>
+                <select id="potentialSelect">
+                  <option value="gaussian">Pozo Gaussiano</option>
+                  <option value="gradient">Gradiente</option>
+                  <option value="noise">Ruido Suave</option>
+                </select>
+              </div>
+
+              <!-- 10. V_amp -->
+              <div class="ctrlGroup">
+                <label for="vAmpRange">V_amp <span class="rangeVal" id="vAmpVal">1.25</span></label>
+                <input type="range" id="vAmpRange" min="0" max="4" step="0.01" value="1.25"
+                  oninput="document.getElementById('vAmpVal').textContent=this.value" />
+              </div>
+
+              <!-- 11. Noise toggle -->
+              <div class="ctrlGroup">
+                <label>Ruido η</label>
+                <button id="noiseToggle" class="active">Ruido ON</button>
+              </div>
+
+              <!-- 12. Noise amp -->
+              <div class="ctrlGroup">
+                <label for="noiseAmpRange">η_amp <span class="rangeVal" id="noiseAmpVal">0.18</span></label>
+                <input type="range" id="noiseAmpRange" min="0" max="2" step="0.01" value="0.18"
+                  oninput="document.getElementById('noiseAmpVal').textContent=this.value" />
+              </div>
+
+              <!-- 13. Seed -->
+              <div class="ctrlGroup">
+                <label for="seedInput">Seed</label>
+                <input type="number" id="seedInput" value="1337" min="1" max="999999" />
+              </div>
+
+              <!-- 14. Random seed -->
+              <button id="btnRandomSeed">Random seed</button>
+
+              <!-- 15. Grid -->
+              <div class="ctrlGroup">
+                <label for="gridSelect">Grid</label>
+                <select id="gridSelect">
+                  <option value="128">128</option>
+                  <option value="192">192</option>
+                  <option value="256" selected>256</option>
+                  <option value="384">384</option>
+                  <option value="512">512</option>
+                </select>
+              </div>
+
+              <!-- 16. Quality -->
+              <div class="ctrlGroup">
+                <label for="renderScaleSelect">Quality</label>
+                <select id="renderScaleSelect">
+                  <option value="1.0">1.0</option>
+                  <option value="0.75" selected>0.75</option>
+                  <option value="0.5">0.5</option>
+                </select>
+              </div>
+
+              <!-- 17. Export JSON -->
+              <button id="btnExportJson">Exportar JSON</button>
+
+              <!-- 18. Share links -->
+              <div id="shareLinks">
+                <a id="linkRepo" href="#" target="_blank" rel="noopener">Abrir Repo</a>
+                <a id="linkPrompt" href="./PROMPT.md" target="_blank" rel="noopener">Abrir PROMPT.md</a>
+              </div>
+
+            </aside>
+          </div>
+        </div>
+
+      </div><!-- /#cardsTop -->
+    </section>
+
+    <!-- ── HOW TAB ── -->
+    <section id="sectionHow" style="display:none">
+      <section id="practice">
+        <div class="panel sectionPad">
+          <h2>Cómo Lograr Esto en la Práctica</h2>
+          <div class="practiceGrid">
+            <div class="practiceCol">
+              <h4>Física</h4>
+              <ul>
+                <li>Flujo de energía</li>
+                <li>Disipación</li>
+                <li>Límite FRIF_max</li>
+              </ul>
+            </div>
+            <div class="practiceCol">
+              <h4>Tecnología</h4>
+              <ul>
+                <li>ODE Estocásticas</li>
+                <li>Cálculo de V_eff</li>
+                <li>Visualización Canvas</li>
+              </ul>
+            </div>
+            <div class="practiceCol">
+              <h4>Biología</h4>
+              <ul>
+                <li>Quiralidad</li>
+                <li>Asimetría Sostenida</li>
+                <li>Polaridad</li>
+              </ul>
+            </div>
+            <div class="practiceCol">
+              <h4>Validación</h4>
+              <ul>
+                <li>Umbral E_L</li>
+                <li>Invertir L/D</li>
+                <li>Reproducibilidad</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <!-- ── IMPL TAB ── -->
+    <section id="implementation" style="display:none">
+      <div class="panel sectionPad">
+        <h2>Guía de Implementación Real</h2>
+        <div class="implCards">
+          <div class="implCard">
+            <h4>Demo Web</h4>
+            <p>Simulación Conceptual</p>
+          </div>
+          <div class="implCard">
+            <h4>Investigación</h4>
+            <p>Análisis Computacional</p>
+          </div>
+          <div class="implCard">
+            <h4>Experimento</h4>
+            <p>Prueba Controlada</p>
+          </div>
+        </div>
+        <ol id="stepList">
+          <li>Configurar Parámetros</li>
+          <li>Verificar Estabilidad</li>
+          <li>Registrar Métricas</li>
+          <li>Exportar Evidencia</li>
+          <li>Reproducir por URL/JSON</li>
+        </ol>
+      </div>
+    </section>
+
+  </main>
+
+  <footer id="footer">
+    <a href="#">Predicciones</a>
+    <a href="#">Limitaciones</a>
+    <a href="#">Metáfora Controlada</a>
+    <span>© Investigación Simulada</span>
+  </footer>
+
+</div><!-- /#app -->
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
